@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Подсчёт зарплаты и продаж</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #222;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: 0.5s;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #333;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+        }
+
+        label {
+            font-size: 18px;
+            display: block;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        input, button {
+            padding: 10px 15px;
+            font-size: 16px;
+            margin: 5px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+        }
+
+        input {
+            border: 2px solid #aaa;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .day-container {
+            border: 2px solid #666;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.85);
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+            transition: 0.5s;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background: #f5f5f5;
+        }
+
+        .result {
+            font-weight: bold;
+            font-size: 18px;
+            margin: 5px 0;
+        }
+
+        /* 💸 Анимация денег */
+        .money {
+            position: fixed;
+            top: -50px;
+            font-size: 24px;
+            animation: fall linear infinite;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-50px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+        }
+
+        /* 🌙 Тёмная тема */
+        body.dark {
+            background: linear-gradient(135deg, #1f1c2c, #928dab);
+            color: #eee;
+        }
+
+        body.dark h1, body.dark h2 {
+            color: #fff;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+        }
+
+        body.dark .day-container {
+            background: rgba(30, 30, 30, 0.9);
+            border: 2px solid #999;
+        }
+
+        body.dark th {
+            background: #333;
+            color: #fff;
+        }
+
+        body.dark td {
+            background: #222;
+            color: #eee;
+        }
+
+        .theme-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #222;
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+
+        body.dark .theme-btn {
+            background: #ddd;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+<h1>💰 Подсчёт зарплаты и продаж 💸</h1>
+
+<button class="theme-btn" onclick="toggleTheme()">🌙 Ночной режим</button>
+
+<label>Сколько дней работал: <input type="number" id="daysCount" min="1"></label>
+<div style="text-align:center;">
+    <button onclick="createDays()">Создать дни</button>
+</div>
+
+<div id="daysArea"></div>
+<div style="text-align:center;">
+    <button onclick="calculateTotal()">Посчитать итого</button>
+</div>
+
+<h2>📊 Общий итог</h2>
+<div id="totalOutput"></div>
+
+<script>
+function createDays() {
+    let count = parseInt(document.getElementById("daysCount").value);
+    let area = document.getElementById("daysArea");
+    area.innerHTML = "";
+
+    for (let i = 1; i <= count; i++) {
+        let container = document.createElement("div");
+        container.className = "day-container";
+        container.innerHTML = `
+            <h3>День ${i}</h3>
+            <table id="tableDay${i}">
+                <tr><th>Сумма (тг)</th><th>С НДС?</th></tr>
+            </table>
+            <button onclick="addSale(${i})">➕ Добавить продажу</button>
+        `;
+        area.appendChild(container);
+    }
+}
+
+function addSale(day) {
+    let table = document.getElementById("tableDay" + day);
+    let row = document.createElement("tr");
+    row.innerHTML = `
+        <td><input type="number" step="0.01" placeholder="Сумма"></td>
+        <td><input type="checkbox"></td>
+    `;
+    table.appendChild(row);
+}
+
+function calculateTotal() {
+    let daysCount = parseInt(document.getElementById("daysCount").value);
+    let totalSalary = 0;
+    let totalSalesWithVAT = 0;
+    let totalSalesWithoutVAT = 0;
+    let workedDays = 0;
+
+    let report = `<table>
+        <tr>
+            <th>День</th>
+            <th>Сумма кассы (с НДС)</th>
+            <th>Сумма кассы (без НДС)</th>
+            <th>Зарплата за день</th>
+        </tr>`;
+
+    for (let i = 1; i <= daysCount; i++) {
+        let table = document.getElementById("tableDay" + i);
+        let rows = table.getElementsByTagName("tr");
+
+        let daySalesWithVAT = 0;
+        let daySalesWithoutVAT = 0;
+
+        for (let r = 1; r < rows.length; r++) {
+            let amount = parseFloat(rows[r].cells[0].getElementsByTagName("input")[0].value) || 0;
+            let withVAT = rows[r].cells[1].getElementsByTagName("input")[0].checked;
+
+            if (withVAT) {
+                daySalesWithVAT += amount;
+                daySalesWithoutVAT += amount / 1.18;
+            } else {
+                daySalesWithVAT += amount;
+                daySalesWithoutVAT += amount;
+            }
+        }
+
+        let salary = 0;
+        if (daySalesWithoutVAT === 0) {
+            salary = 3000;
+        } else if (daySalesWithoutVAT <= 100000) {
+            salary = 3500;
+        } else if (daySalesWithoutVAT <= 150000) {
+            salary = 4000;
+        } else if (daySalesWithoutVAT >= 200000) {
+            salary = 4500;
+        }
+
+        if (daySalesWithVAT > 0 || daySalesWithoutVAT > 0) {
+            workedDays++;
+        }
+
+        totalSalary += salary;
+        totalSalesWithVAT += daySalesWithVAT;
+        totalSalesWithoutVAT += daySalesWithoutVAT;
+
+        report += `
+            <tr>
+                <td>${i}</td>
+                <td>${daySalesWithVAT.toLocaleString()} тг</td>
+                <td>${daySalesWithoutVAT.toLocaleString()} тг</td>
+                <td>${salary.toLocaleString()} тг</td>
+            </tr>`;
+    }
+
+    report += `</table>
+        <p class="result">Всего дней: ${daysCount}</p>
+        <p class="result">Рабочих дней (с продажами): ${workedDays}</p>
+        <p class="result">Сумма кассы (с НДС): ${totalSalesWithVAT.toLocaleString()} тг</p>
+        <p class="result">Сумма кассы (без НДС): ${totalSalesWithoutVAT.toLocaleString()} тг</p>
+        <p class="result">Зарплата за все дни: ${totalSalary.toLocaleString()} тг</p>`;
+
+    document.getElementById("totalOutput").innerHTML = report;
+
+    launchMoneyRain();
+}
+
+/* 💸 Анимация дождя из денег */
+function launchMoneyRain() {
+    for (let i = 0; i < 20; i++) {
+        let money = document.createElement("div");
+        money.className = "money";
+        money.style.left = Math.random() * 100 + "vw";
+        money.style.animationDuration = (3 + Math.random() * 3) + "s";
+        money.innerHTML = "💸";
+        document.body.appendChild(money);
+
+        setTimeout(() => money.remove(), 6000);
+    }
+}
+
+/* 🌙 Переключение темы */
+function toggleTheme() {
+    document.body.classList.toggle("dark");
+    let btn = document.querySelector(".theme-btn");
+    if (document.body.classList.contains("dark")) {
+        btn.innerHTML = "☀️ Светлый режим";
+    } else {
+        btn.innerHTML = "🌙 Ночной режим";
+    }
+}
+</script>
+
+</body>
+</html>
